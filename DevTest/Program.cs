@@ -6,7 +6,9 @@ namespace DevTest
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            var message = new TestMessage();
+            message.Thing = 5;
+            Console.WriteLine(message.GetMessageTypeHash());
         }
     }
 }
