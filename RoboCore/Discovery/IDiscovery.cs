@@ -1,11 +1,16 @@
+using System.Net;
+
 namespace RoboCore.Discovery
 {
+    public delegate void HostDiscoveredHandler(string networkID, IPAddress address, int port);
+    
     public interface IDiscovery
     {
-        public delegate void HostAppearedHandler(string ip);
-        public delegate void HostDisappearedHandler(string ip);
+        public event HostDiscoveredHandler HostDiscovered;
+
+        public void PublishPresence();
         
-        public void Start(bool isBroker);
+        public void Start();
         public void Stop();
     }
 }

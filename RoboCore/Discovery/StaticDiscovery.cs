@@ -6,43 +6,54 @@ namespace RoboCore.Discovery
 {
     public class StaticDiscovery : IDiscovery
     {
+        public event HostDiscoveredHandler HostDiscovered;
+
+        private readonly bool _isBroker;
         private readonly IPAddress _ipAddress;
+        private readonly string _networkID;
+        private readonly int _port;
 
-        private RoboCoreConfig _config;
-        
-        public StaticDiscovery(RoboCoreConfig config, bool isBroker) : this(config, null) { }
-
-        public StaticDiscovery(RoboCoreConfig config, bool isBroker, string ip)
+        public StaticDiscovery(RoboCoreConfig config)
         {
-            _config = config;
+            _isBroker = config.IsBroker;
+            if (_isBroker)
+            {
+                return;
+            }
             
-            var isValid = IPAddress.TryParse(ip, out _ipAddress);
-            if (!isValid)
+            var isIPValid = IPAddress.TryParse($"{config.BrokerIPAddress}", out _ipAddress);
+            if (!isIPValid)
             {
-                throw new ArgumentException("Value provided is not a valid IP address");
+                throw new ArgumentException("IP value provided is not a valid IP address");
             }
-        }
-        
-        public void Start(bool isBroker)
-        {
-            if (!isBroker && _ipAddress == null)
+            
+            var port = config.BrokerPort;
+            if (port < 1)
             {
-                throw new InvalidOperationException("Cannot start without providing an IP address in the constructor");
+                throw new ArgumentException("Port value provided is not a valid IP address");
             }
 
-            if (isBroker)
+            _port = port;
+            _networkID = config.NetworkID;
+        }
+
+        public void PublishPresence()
+        {
+        }
+
+        public void Start()
+        {
+            if (!_isBroker)
             {
-                
-            }
-            else
-            {
-                
+                InvokeHostDiscovered(_ipAddress, _port);
             }
         }
 
-        public void Stop()
+        public void Stop() { }
+
+        private void InvokeHostDiscovered(IPAddress address, int port)
         {
-            throw new System.NotImplementedException();
+            HostDiscovered?.Invoke(_networkID, address, port);
         }
     }
 }

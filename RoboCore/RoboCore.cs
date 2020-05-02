@@ -1,6 +1,7 @@
 ﻿
 using RoboCore.Config;
-using RoboCore.Messages;
+using RoboCore.DataTransport;
+using RoboCore.DataTransport.MQTT;
 
 namespace RoboCore
 {
@@ -10,26 +11,27 @@ namespace RoboCore
     public class RoboCore : IRoboCore
     {
         public static readonly RoboCoreConfig DefaultConfig = new RoboCoreConfig();
-        public static readonly RoboCoreComponents DefaultComponents = new RoboCoreComponents(DefaultConfig);
-        
+
         private readonly RoboCoreConfig _config;
-        private readonly RoboCoreComponents _components;
+        private readonly IDataTransport _dataTransport;
 
-        public RoboCore() : this(DefaultConfig, DefaultComponents) { }
-        public RoboCore(RoboCoreConfig config) : this(config, new RoboCoreComponents(config)) { }
+        public RoboCore() : this(DefaultConfig) { }
 
-        public RoboCore(RoboCoreConfig config, RoboCoreComponents components)
+        public RoboCore(RoboCoreConfig config)
         {
             _config = config;
-            _components = components;
+            _config.Validate();
+            
+            var brokerTransportBootstrapper = new MQTTDataTransportBootstrapper(_config);
+            _dataTransport = brokerTransportBootstrapper.CreateMQTTDataTransport();
         }
 
-        public bool Init()
+        public bool Start()
         {
             return false;
         }
 
-        public void Shutdown()
+        public void Stop()
         {
             
         }

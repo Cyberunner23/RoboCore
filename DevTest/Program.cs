@@ -1,27 +1,29 @@
 ﻿using System;
+using System.Net;
 using Newtonsoft.Json;
+using RoboCore.Config;
+using RoboCore.DataTransport.MQTT;
+using Serilog;
 
 namespace DevTest
 {
-    class Base
-    {
-        public int Number { get; set; }
-    }
-
-    class Derived : Base
-    {
-        public string Str { get; set; }
-    }
-    
-    
-    
     class Program
     {
         static void Main(string[] args)
         {
-            var message = new Derived();
-            var ser = JsonConvert.SerializeObject(message);
-            Console.WriteLine(ser);
+
+            Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+         
+            var config = new RoboCoreConfig()
+            {
+                IsBroker = true
+            };
+            var dataTransportBootstrapper = new MQTTDataTransportBootstrapper(config);
+            var transport = dataTransportBootstrapper.CreateMQTTDataTransport();
+            
+            transport.Start();
+            Console.ReadKey();
+            transport.Stop();
         }
     }
 }
