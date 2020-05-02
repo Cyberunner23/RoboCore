@@ -10,5 +10,15 @@ namespace RoboCore.Discovery
         {
             _config = config;
         }
+
+        public void Start(bool isBroker)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public void Stop()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

@@ -2,7 +2,7 @@ using RoboCore.Messages;
 
 namespace DevTest
 {
-    public class TestMessage : MessageBase
+    public class TestMessage
     {
         private int _thing;
         public int Thing
