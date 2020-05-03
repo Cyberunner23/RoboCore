@@ -2,7 +2,7 @@ using System;
 using System.Net;
 using MQTTnet;
 using MQTTnet.Server;
-using RoboCore.Discovery;
+using RoboCore.DataTransport.MQTT.Discovery;
 using Serilog;
 
 namespace RoboCore.DataTransport.MQTT
@@ -35,9 +35,9 @@ namespace RoboCore.DataTransport.MQTT
             var options = new MqttServerOptions();
             options.DefaultEndpointOptions.Port = Port;
             
-            Log.Information($"MQTT Broker: Starting on port {IPAddress}:{Port}");
+            Log.Information($"MQTTBroker: Starting on port {IPAddress}:{Port}");
             _broker.StartAsync(options).Wait();
-            Log.Information("MQTT Broker: Started");
+            Log.Information("MQTTBroker: Started");
         }
 
         public void Stop()

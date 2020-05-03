@@ -7,6 +7,6 @@ namespace RoboCore.Messages
         public string Source { get; set; }
         public string Destination { get; set; }
         public string Payload { get; set; }
-        public List<byte> DataIntegrityValues { get; set; }
+        public string DataIntegrityValues { get; set; }
     }
 }

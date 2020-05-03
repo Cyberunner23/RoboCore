@@ -1,7 +1,10 @@
+using System;
+using System.Threading.Tasks;
+
 namespace RoboCore
 {
-    public interface IPublisher<TMessage>
+    public interface IPublisher<TMessage> : IDisposable
     {
-        public void PublishMessage(TMessage message);
+        public Task PublishMessage(TMessage message, bool retained);
     }
 }

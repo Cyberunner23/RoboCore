@@ -1,7 +1,10 @@
 ﻿
+using System;
+using System.Transactions;
 using RoboCore.Config;
 using RoboCore.DataTransport;
 using RoboCore.DataTransport.MQTT;
+using Serilog;
 
 namespace RoboCore
 {
@@ -10,9 +13,11 @@ namespace RoboCore
     /// </summary>
     public class RoboCore : IRoboCore
     {
-        public static readonly RoboCoreConfig DefaultConfig = new RoboCoreConfig();
+        private static readonly RoboCoreConfig DefaultConfig = new RoboCoreConfig();
 
         private readonly RoboCoreConfig _config;
+
+        private bool _isRunning = false;
         private readonly IDataTransport _dataTransport;
 
         public RoboCore() : this(DefaultConfig) { }
@@ -21,35 +26,72 @@ namespace RoboCore
         {
             _config = config;
             _config.Validate();
-            
-            var brokerTransportBootstrapper = new MQTTDataTransportBootstrapper(_config);
-            _dataTransport = brokerTransportBootstrapper.CreateMQTTDataTransport();
+            _dataTransport = _config.DataTransport;
         }
 
         public bool Start()
         {
-            return false;
+            Log.Information("Starting RoboCore");
+            
+            try
+            {
+                _dataTransport.Start();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"{e}");
+                return false;
+            }
+
+            Log.Information("RoboCore Started");
+            _isRunning = true;
+            return true;
         }
 
         public void Stop()
         {
+            Log.Information("Stopping RoboCore");
             
+            if (!_isRunning)
+            {
+                return;
+            }
+            
+            _dataTransport.Stop();
+            _isRunning = false;
+            Log.Information("RoboCore Stopped");
         }
 
-        public void CreatePublisher<MessageType>(string topic)
+        public IPublisher<TMessage> CreatePublisher<TMessage>(string topic)
         {
+            ThrowIfStopped();
+            return _dataTransport.CreatePublisher<TMessage>(topic);
         }
 
-        public void CreateSubscriber<MessageType>(string topic)
+        public ISubscriber<TMessage> CreateSubscriber<TMessage>(string topic)
         {
+            ThrowIfStopped();
+            return _dataTransport.CreateSubscriber<TMessage>(topic);
         }
 
-        public void CreateServiceEndpoint<RequestType, ResponseType>(string topic)
+        public IServiceEndpoint<TRequest, TResponse> CreateServiceEndpoint<TRequest, TResponse>(string topic)
         {
+            ThrowIfStopped();
+            return _dataTransport.CreateServiceEndpoint<TRequest, TResponse>(topic);
         }
 
-        public void CreateClientEndpoint<RequestType, ResponseType>(string topic)
+        public IClientEndpoint<TRequest, TResponse> CreateClientEndpoint<TRequest, TResponse>(string topic)
         {
+            ThrowIfStopped();
+            return _dataTransport.CreateClientEndpoint<TRequest, TResponse>(topic);
+        }
+
+        private void ThrowIfStopped()
+        {
+            if (!_isRunning)
+            {
+                throw new InvalidOperationException("RoboCore must be started before performing this action");
+            }
         }
     }
 }

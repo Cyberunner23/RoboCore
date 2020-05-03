@@ -3,7 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 
-namespace RoboCore.Discovery
+namespace RoboCore.DataTransport.MQTT.Discovery
 {
     public static class IPUtils
     {

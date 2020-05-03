@@ -1,6 +1,6 @@
 namespace RoboCore
 {
-    public interface IClientEndpoint
+    public interface IClientEndpoint<TRequest, TReponse>
     {
         
     }

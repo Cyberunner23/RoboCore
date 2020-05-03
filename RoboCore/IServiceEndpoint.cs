@@ -1,6 +1,6 @@
 namespace RoboCore
 {
-    public interface IServiceEndpoint
+    public interface IServiceEndpoint<TRequest, TReponse>
     {
         
     }

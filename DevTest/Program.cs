@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Net;
-using Newtonsoft.Json;
-using RoboCore.Config;
-using RoboCore.DataTransport.MQTT;
+
 using Serilog;
+
+using RoboCore.Config;
 
 namespace DevTest
 {
@@ -14,16 +13,18 @@ namespace DevTest
 
             Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
          
-            var config = new RoboCoreConfig()
-            {
-                IsBroker = true
-            };
-            var dataTransportBootstrapper = new MQTTDataTransportBootstrapper(config);
-            var transport = dataTransportBootstrapper.CreateMQTTDataTransport();
+            var config = new RoboCoreConfig();
+            config.DataTransport.GetConfig<MQTTConfig>().IsBroker = true;
             
-            transport.Start();
+            var roboCore = new RoboCore.RoboCore(config);
+            var roboCore2 = new RoboCore.RoboCore();
+
+            roboCore.Start();
             Console.ReadKey();
-            transport.Stop();
+            roboCore2.Start();
+            Console.ReadKey();
+            roboCore.Stop();
+            roboCore2.Stop();
         }
     }
 }

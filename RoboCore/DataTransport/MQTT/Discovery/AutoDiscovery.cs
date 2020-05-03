@@ -1,87 +1,84 @@
 using System;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using RoboCore.Config;
 using Serilog;
 
-namespace RoboCore.Discovery
+using RoboCore.Config;
+
+namespace RoboCore.DataTransport.MQTT.Discovery
 {
-    
-    //TODO(AFL): Handle async/sync mess with start/stop and UDP locking reads
     public class AutoDiscovery : IDiscovery
     {
         private const string BroadcastIP = "255.255.255.255";
-        
-        public event HostDiscoveredHandler HostDiscovered;
 
-        private readonly bool _isBroker;
-        private readonly TimeSpan _broadcastInterval;
-        private readonly int _broadcastPort;
-        private readonly string _networkID;
+        private readonly MQTTConfig _config;
         private readonly IPAddress _selfAddress;
 
         private CancellationTokenSource _cancellationToken;
         private UdpClient _listenerClient;
 
-        public AutoDiscovery(RoboCoreConfig config)
+        public AutoDiscovery(MQTTConfig config)
         {
-            _isBroker = config.IsBroker;
-            _broadcastInterval = config.AutoDiscoveryBroadcastInterval;
-            _broadcastPort = config.AutoDiscoveryBroadcastPort;
-            _networkID = config.NetworkID;
+            _config = config;
             _selfAddress = IPUtils.GetLocalIP();
         }
 
-        public void PublishPresence()
-        {
-            BroadcastAvailabilityMessage(_selfAddress, _broadcastPort);
-        }
-
-        public void Start()
+        public override void Start()
         {
             _cancellationToken = new CancellationTokenSource();
             
-            if (_isBroker)
+            if (_config.IsBroker)
             {
                 StartBrokerBroadcast();
             }
             
-            ListenBrokerBroadcast();
+            ListenToBrokerBroadcast();
         }
 
-        public void Stop()
+        public override void Stop()
         {
             _cancellationToken?.Cancel();
             _listenerClient.Close();
-            _listenerClient.Dispose();
-            _listenerClient = null;
         }
 
-        private void ListenBrokerBroadcast()
+        private void StartBrokerBroadcast()
         {
-            var ipEndpoint = new IPEndPoint(IPAddress.Any, _broadcastPort);
+            Task.Run(async () =>
+            {
+                while (!_cancellationToken.IsCancellationRequested)
+                {
+                    BroadcastAvailabilityMessage(_selfAddress, _config.AutoDiscoveryBroadcastPort);
+                    await Task.Delay(_config.AutoDiscoveryBroadcastInterval);
+                }
+            });
+        }
+        
+        private void ListenToBrokerBroadcast()
+        {
+            var ipEndpoint = new IPEndPoint(IPAddress.Any, _config.AutoDiscoveryBroadcastPort);
             
             _listenerClient = new UdpClient();
             _listenerClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listenerClient.ExclusiveAddressUse = false;
             _listenerClient.Client.Bind(ipEndpoint);
 
-            while (!_cancellationToken.IsCancellationRequested)
-            {
-                _listenerClient.BeginReceive(OnBroadcastReceived, null);    
-            }
+            BeginBroadcastReceive();
+        }
+
+        private void BeginBroadcastReceive()
+        {
+            _listenerClient.BeginReceive(OnBroadcastReceived, null);
         }
 
         private void OnBroadcastReceived(IAsyncResult result)
         {
-            var ipEndpoint = new IPEndPoint(IPAddress.Any, _broadcastPort);
+            var ipEndpoint = new IPEndPoint(IPAddress.Any, _config.AutoDiscoveryBroadcastPort);
 
-            byte[] data = null;
+            byte[] data;
             try
             {
                 data = _listenerClient.EndReceive(result, ref ipEndpoint);
@@ -115,29 +112,48 @@ namespace RoboCore.Discovery
                 Log.Warning($"Received badly formatted broadcast message (bad Port): {message}");
                 return;
             }
+
+            if (_config.IsBroker)
+            {
+                VerifyHost(networkID, address);    
+            }
             
-            InvokeHostDiscovered(networkID, address, port);
+            InvokeBrokerDiscovered(networkID, address, port);
+
+            if (!_cancellationToken.IsCancellationRequested)
+            {
+                BeginBroadcastReceive();
+            }
         }
         
-        private void StartBrokerBroadcast()
+        private void VerifyHost(string networkID, IPAddress address)
         {
-            Task.Run(async () =>
+            if (!string.Equals(_config.NetworkID, networkID))
             {
-                while (!_cancellationToken.IsCancellationRequested)
-                {
-                    BroadcastAvailabilityMessage(_selfAddress, _broadcastPort);
-                    await Task.Delay(_broadcastInterval);
-                }
-            });
+                return;
+            }
+
+            if (!_selfAddress.Equals(address))
+            {
+                PublishPresence();
+                Log.Fatal($"More than one broker detected on RoboCore Network \"{_config.NetworkID}\".");
+                Environment.Exit(-1);
+            }
+        }
+
+        #region Broker Broadcasting
+        public void PublishPresence()
+        {
+            BroadcastAvailabilityMessage(_selfAddress, _config.AutoDiscoveryBroadcastPort);
         }
         
         
 
         private void BroadcastAvailabilityMessage(IPAddress address, int port)
         {
-            var message = $"{_networkID}:{address}:{port}";
+            var message = $"{_config.NetworkID}:{address}:{port}";
             var udpClient = new UdpClient();
-            var ipEndpoint = new IPEndPoint(IPAddress.Parse(BroadcastIP), _broadcastPort);
+            var ipEndpoint = new IPEndPoint(IPAddress.Parse(BroadcastIP), _config.AutoDiscoveryBroadcastPort);
             var messageBytes = Encoding.ASCII.GetBytes(message);
             
             udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -145,10 +161,6 @@ namespace RoboCore.Discovery
             udpClient.Send(messageBytes, messageBytes.Length, ipEndpoint);
             udpClient.Close();
         }
-
-        private void InvokeHostDiscovered(string networkID, IPAddress address, int port)
-        {
-            HostDiscovered?.Invoke(networkID, address, port);
-        }
+        #endregion
     }
 }
