@@ -5,6 +5,6 @@ namespace RoboCore
 {
     public interface IPublisher<TMessage> : IDisposable
     {
-        public Task PublishMessage(TMessage message, bool retained);
+        public Task PublishMessage(TMessage message, bool retained = false);
     }
 }

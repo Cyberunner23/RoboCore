@@ -142,12 +142,10 @@ namespace RoboCore.DataTransport.MQTT.Discovery
         }
 
         #region Broker Broadcasting
-        public void PublishPresence()
+        private void PublishPresence()
         {
             BroadcastAvailabilityMessage(_selfAddress, _config.AutoDiscoveryBroadcastPort);
         }
-        
-        
 
         private void BroadcastAvailabilityMessage(IPAddress address, int port)
         {

@@ -21,13 +21,13 @@ namespace RoboCore.Messages
             return serialized;
         }
 
-        public TMessage Deserialize(string serialized)
+        public bool Deserialize(string serialized, out TMessage message)
         {
             var wrappedMessage = JsonConvert.DeserializeObject<TWrapper>(serialized);
             // TODO(AFL): Verify integrity values, error handling
 
-            var message = BSONDeserialize(wrappedMessage.Payload);
-            return message;
+            message = BSONDeserialize(wrappedMessage.Payload);
+            return true;
         }
 
         private string BSONSerialize(object obj)

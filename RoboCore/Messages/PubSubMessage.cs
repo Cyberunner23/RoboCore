@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace RoboCore.Messages
 {
     public class PubSubMessage : IWrappedMessage

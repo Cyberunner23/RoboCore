@@ -1,8 +1,8 @@
 using System;
 using System.Net;
-
+using MQTTnet.Client.Options;
 using MQTTnet.Protocol;
-
+using RoboCore.DataTransport.MQTT.Discovery;
 using RoboCore.Exceptions;
 
 namespace RoboCore.Config
@@ -22,6 +22,20 @@ namespace RoboCore.Config
             {
                 ThrowIfLocked();
                 _isBroker = value;
+            }
+        }
+
+        /// <summary>
+        /// Name of the robot, used to differentiate between robots.
+        /// </summary>
+        private string _robotName = $"{IPUtils.GetLocalIP()}";
+        public string RobotName
+        {
+            get => _robotName;
+            set
+            {
+                ThrowIfLocked();
+                _robotName = value;
             }
         }
 
@@ -105,32 +119,16 @@ namespace RoboCore.Config
         }
 
         /// <summary>
-        /// Time delay between sending heartbeats to the other Robot.
+        /// Time delay between sending keep alive packets to the other Robot.
         /// </summary>
-        private TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(1);
-        public TimeSpan HeartbeatTimeout
+        private TimeSpan _keepalivePeriod = TimeSpan.FromSeconds(1);
+        public TimeSpan KeepalivePeriod
         {
-            get => _heartbeatTimeout;
+            get => _keepalivePeriod;
             set
             {
                 ThrowIfLocked();
-                _heartbeatTimeout = value;
-            }
-        }
-
-        /// <summary>
-        /// How many heartbeats we miss until we consider the other Robot to be gone.
-        /// NOTE: Value must be >= 2
-        /// </summary>
-        private const int MinHeartbeatMissCount = 2;
-        private int _heartbeatMissCount = MinHeartbeatMissCount;
-        public int HeartbeatMissCount
-        {
-            get => _heartbeatMissCount;
-            set
-            {
-                ThrowIfLocked();
-                _heartbeatMissCount = value;
+                _keepalivePeriod = value;
             }
         }
 
@@ -149,9 +147,48 @@ namespace RoboCore.Config
                _qosLevel = value;
             }
         }
+        
+        /// <summary>
+        /// Options for using TLS with MQTT.
+        /// </summary>
+        private MqttClientTlsOptions _tlsOptions = new MqttClientTlsOptions()
+        {
+            UseTls = false,
+            IgnoreCertificateRevocationErrors = true,
+            IgnoreCertificateChainErrors = true,
+            AllowUntrustedCertificates = true
+        };
+        public MqttClientTlsOptions TLSOptions
+        {
+            get => _tlsOptions;
+            set
+            {
+                ThrowIfLocked();
+                _tlsOptions = value;
+            }
+        }
+
+        /// <summary>
+        /// Whether the broker should clean the session info when a lient connects
+        /// </summary>
+        private bool _cleanSession = true;
+        public bool CleanSession
+        {
+            get => _cleanSession;
+            set
+            {
+                ThrowIfLocked();
+                _cleanSession = value;
+            }
+        }
 
         protected override void ValidateInternal()
         {
+            if (string.IsNullOrEmpty(RobotName))
+            {
+                throw new ConfigurationException($"{nameof(RobotName)} must be set");
+            }
+            
             if (!UseAutoDiscovery && BrokerPort < 1)
             {
                 throw new ConfigurationException($"{nameof(BrokerPort)} must be set");
@@ -160,6 +197,11 @@ namespace RoboCore.Config
             if (!IsBroker && !UseAutoDiscovery && string.IsNullOrEmpty(BrokerIPAddress))
             {
                 throw new ConfigurationException($"{nameof(BrokerIPAddress)} must be set");
+            }
+
+            if (TLSOptions == null)
+            {
+                throw new ConfigurationException($"{nameof(TLSOptions)} must be set");
             }
 
             if (!string.IsNullOrEmpty(BrokerIPAddress))
@@ -176,11 +218,6 @@ namespace RoboCore.Config
                 throw new ConfigurationException($"Invalid value for {nameof(AutoDiscoveryBroadcastPort)} provided");
             }
 
-            if (HeartbeatMissCount < MinHeartbeatMissCount)
-            {
-                throw new ConfigurationException($"Value for {nameof(HeartbeatMissCount)} must be >= {MinHeartbeatMissCount}");
-            }
-            
             Lock();
         }
     }
