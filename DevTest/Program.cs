@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading;
-using System.Threading.Tasks;
+
 using Serilog;
 
 using RoboCore.Config;
@@ -60,6 +60,19 @@ namespace DevTest
         private static void OnMessageReceived(TestMessage message)
         {
             Log.Information($"Message received: {message.Num}");
+        }
+
+
+        private static void Example()
+        {
+            Log.Logger = new LoggerConfiguration().WriteTo.Async(x => x.Console()).CreateLogger();
+            
+            var core = new RoboCore.RoboCore();
+            core.Start();
+
+            core.CreatePublisher<TestMessage>("yay");
+            var sub = core.CreateSubscriber<TestMessage>("controller");
+            sub.MessageReceived += message => { /*Do something with message*/ };
         }
     }
 }
