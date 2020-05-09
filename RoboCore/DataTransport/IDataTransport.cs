@@ -1,9 +1,12 @@
+using System;
 using System.Net;
+
 using RoboCore.Config;
-using RoboCore.DataTransport.MQTT.Discovery;
 
 namespace RoboCore.DataTransport
 {
+    public delegate void BrokerDiscoveredHandler(string networkID, IPAddress address, int port);
+    
     public abstract class IDataTransport
     {
         public event BrokerDiscoveredHandler BrokerDiscovered;
@@ -15,12 +18,14 @@ namespace RoboCore.DataTransport
             return (TConfig)GetConfig();
         }
         
-        public abstract IPublisher<TMessage> CreatePublisher<TMessage>(string topic);
-        public abstract ISubscriber<TMessage> CreateSubscriber<TMessage>(string topic);
-        
-        public abstract IServiceEndpoint<TRequest, TResponse> CreateServiceEndpoint<TRequest, TResponse>(string topic);
-        public abstract IClientEndpoint<TRequest, TResponse> CreateClientEndpoint<TRequest, TResponse>(string topic);
-        
+        public abstract IPublisher<TMessage> CreatePublisher<TMessage>(string topic) where TMessage : class, new();
+        public abstract ISubscriber CreateSubscriber<TMessage>(string topic, Action<TMessage> messageHandler) where TMessage : class, new();
+
+        public abstract IServiceEndpoint CreateServiceEndpoint<TRequest, TResponse>(string topic, Func<TRequest, TResponse> requestReceivedHandler) 
+            where TRequest : class, new() where TResponse : class, new();
+        public abstract IClientEndpoint<TRequest, TResponse> CreateClientEndpoint<TRequest, TResponse>(string topic, Action<TResponse> responseReceivedHandler) 
+            where TRequest : class, new() where TResponse : class, new();
+
         public abstract void Start();
         public abstract void Stop();
 

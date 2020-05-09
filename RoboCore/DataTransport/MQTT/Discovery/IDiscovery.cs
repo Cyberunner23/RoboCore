@@ -2,8 +2,6 @@ using System.Net;
 
 namespace RoboCore.DataTransport.MQTT.Discovery
 {
-    public delegate void BrokerDiscoveredHandler(string networkID, IPAddress address, int port);
-    
     public abstract class IDiscovery
     {
         public event BrokerDiscoveredHandler BrokerDiscovered;

@@ -1,10 +1,9 @@
-﻿
-using System;
-using System.Transactions;
+﻿using System;
+
+using Serilog;
+
 using RoboCore.Config;
 using RoboCore.DataTransport;
-using RoboCore.DataTransport.MQTT;
-using Serilog;
 
 namespace RoboCore
 {
@@ -62,28 +61,42 @@ namespace RoboCore
             Log.Information("RoboCore Stopped");
         }
 
-        public IPublisher<TMessage> CreatePublisher<TMessage>(string topic)
+        public IPublisher<TMessage> CreatePublisher<TMessage>(string topic) where TMessage : class, new()
         {
             ThrowIfStopped();
             return _dataTransport.CreatePublisher<TMessage>(topic);
         }
 
-        public ISubscriber<TMessage> CreateSubscriber<TMessage>(string topic)
+        public ISubscriber CreateSubscriber<TMessage>(string topic, Action<TMessage> messageReceivedHandler) where TMessage : class, new()
         {
             ThrowIfStopped();
-            return _dataTransport.CreateSubscriber<TMessage>(topic);
+
+            if (messageReceivedHandler == null)
+            {
+                throw new ArgumentNullException(nameof(messageReceivedHandler));
+            }
+            
+            return _dataTransport.CreateSubscriber(topic, messageReceivedHandler);
         }
 
-        public IServiceEndpoint<TRequest, TResponse> CreateServiceEndpoint<TRequest, TResponse>(string topic)
+        public IServiceEndpoint CreateServiceEndpoint<TRequest, TResponse>(string topic, Func<TRequest, TResponse> requestReceivedHandler)
+            where TRequest : class, new() where TResponse : class, new()
         {
             ThrowIfStopped();
-            return _dataTransport.CreateServiceEndpoint<TRequest, TResponse>(topic);
+            
+            if (requestReceivedHandler == null)
+            {
+                throw new ArgumentNullException(nameof(requestReceivedHandler));
+            }
+
+            return _dataTransport.CreateServiceEndpoint(topic, requestReceivedHandler);
         }
 
-        public IClientEndpoint<TRequest, TResponse> CreateClientEndpoint<TRequest, TResponse>(string topic)
+        public IClientEndpoint<TRequest, TResponse> CreateClientEndpoint<TRequest, TResponse>(string topic, Action<TResponse> responseReceivedHandler)
+            where TRequest : class, new() where TResponse : class, new()
         {
             ThrowIfStopped();
-            return _dataTransport.CreateClientEndpoint<TRequest, TResponse>(topic);
+            return _dataTransport.CreateClientEndpoint<TRequest, TResponse>(topic, responseReceivedHandler);
         }
 
         private void ThrowIfStopped()

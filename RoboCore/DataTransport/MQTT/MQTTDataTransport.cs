@@ -39,7 +39,7 @@ namespace RoboCore.DataTransport.MQTT
         private readonly AutoResetEvent _startWait;
         private readonly AutoResetEvent _connectWait;
 
-        private readonly Dictionary<string, ISubscriber> _subscribers;
+        private readonly Dictionary<string, IMessageHandler> _subscribers;
         private readonly List<IDisposable> _publishers;
 
         private IManagedMqttClient _mqttClient;
@@ -50,15 +50,15 @@ namespace RoboCore.DataTransport.MQTT
             _startWait = new AutoResetEvent(false);
             _connectWait = new AutoResetEvent(false);
             
-            _subscribers = new Dictionary<string, ISubscriber>();
+            _subscribers = new Dictionary<string, IMessageHandler>();
             _publishers = new List<IDisposable>();
         }
-        
+
         public override DataTransportConfigBase GetConfig()
         {
             return _config;
         }
-        
+
         public override void Start()
         {
             if (_isRunning)
@@ -117,25 +117,29 @@ namespace RoboCore.DataTransport.MQTT
         public override IPublisher<TMessage> CreatePublisher<TMessage>(string topic)
         {
             var publisher = new MQTTPublisher<TMessage>(_config.QOSLevel, _mqttClient, topic);
-            _publishers.Add(publisher);
+            //_publishers.Add(publisher);
             return publisher;
         }
         
-        public override ISubscriber<TMessage> CreateSubscriber<TMessage>(string topic)
+        public override ISubscriber CreateSubscriber<TMessage>(string topic, Action<TMessage> messageHandler)
         {
-            var subscriber = new MQTTSubscriber<TMessage>(_mqttClient, topic);
+            var subscriber = new MqttSubscriber<TMessage>(_mqttClient, topic, messageHandler);
             _subscribers.Add(topic, subscriber);
             return subscriber;
         }
 
-        public override IServiceEndpoint<TRequest, TResponse> CreateServiceEndpoint<TRequest, TResponse>(string topic)
+        public override IServiceEndpoint CreateServiceEndpoint<TRequest, TResponse>(string topic, Func<TRequest, TResponse> requestReceivedHandler)
         {
-            throw new NotImplementedException();
+            var serviceEndpoint = new MQTTServiceEndpoint<TRequest, TResponse>(_config.QOSLevel, _mqttClient, topic, requestReceivedHandler);
+            _subscribers.Add(serviceEndpoint.RequestTopic, serviceEndpoint);
+            return serviceEndpoint;
         }
-
-        public override IClientEndpoint<TRequest, TResponse> CreateClientEndpoint<TRequest, TResponse>(string topic)
+        
+        public override IClientEndpoint<TRequest, TResponse> CreateClientEndpoint<TRequest, TResponse>(string topic, Action<TResponse> responseReceivedHandler)
         {
-            throw new NotImplementedException();
+            var clientEndpoint = new MQTTClientEndpoint<TRequest, TResponse>(_config.QOSLevel, _mqttClient, topic, responseReceivedHandler);
+            _subscribers.Add(clientEndpoint.ResponseTopic, clientEndpoint);
+            return clientEndpoint;
         }
 
         private void CreateMQTTClient()
@@ -179,14 +183,15 @@ namespace RoboCore.DataTransport.MQTT
         private void OnMessageReceived(MqttApplicationMessageReceivedEventArgs args)
         {
             var topic = args.ApplicationMessage.Topic;
-            ISubscriber subscriber;
+            IMessageHandler subscriber;
             if (!_subscribers.TryGetValue(topic, out subscriber))
             {
                 Log.Debug("MQTTDataTransport: Received message for unsubscribed topic");
                 return;
             }
 
-            subscriber.HandleMessageReceived(Encoding.UTF8.GetString(args.ApplicationMessage.Payload));
+            var messageStr = Encoding.UTF8.GetString(args.ApplicationMessage.Payload);
+            args.ProcessingFailed = !subscriber.HandleMessageReceived(messageStr);
         }
         
         private void InvokeClientConnected(MqttClientConnectedEventArgs args)

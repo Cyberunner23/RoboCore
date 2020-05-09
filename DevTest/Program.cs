@@ -27,10 +27,10 @@ namespace DevTest
 
             roboCore.Start();
             roboCore2.Start();
-            
-            var publisher = roboCore.CreatePublisher<TestMessage>("test");
-            var subscriber = roboCore2.CreateSubscriber<TestMessage>("test");
-            subscriber.MessageReceived += OnMessageReceived;
+
+            roboCore.CreateServiceEndpoint<TestMessageRequest, TestMessageResponse>("test", OnRequestReceived);
+            var client = roboCore2.CreateClientEndpoint<TestMessageRequest, TestMessageResponse>("test", 
+                response => Log.Information($"Received: {response.Num}"));
 
             var currentChar = '1';
             ConsoleKeyInfo cki;
@@ -43,27 +43,27 @@ namespace DevTest
                     switch (cki.KeyChar)
                     {
                         case 'p':
-                            publisher.PublishMessage(new TestMessage {Num = 5});
-                            Log.Information("Sent message");
+
+                            var request = new TestMessageRequest() {Num = 6};
+                            client.SendRequest(request, null);
+                            Log.Information($"Sent: {request.Num}");
                             break;
                     }
                 }
                 Thread.Sleep(1);
             } while (currentChar != 'q');
             
-            
-            
             roboCore.Stop();
             roboCore2.Stop();
         }
 
-        private static void OnMessageReceived(TestMessage message)
+        private static TestMessageResponse OnRequestReceived(TestMessageRequest arg)
         {
-            Log.Information($"Message received: {message.Num}");
+            return new TestMessageResponse() { Num = arg.Num + 0.5f } ;
         }
 
 
-        private static void Example()
+        /*private static void Example()
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Async(x => x.Console()).CreateLogger();
             
@@ -71,8 +71,7 @@ namespace DevTest
             core.Start();
 
             core.CreatePublisher<TestMessage>("yay");
-            var sub = core.CreateSubscriber<TestMessage>("controller");
-            sub.MessageReceived += message => { /*Do something with message*/ };
-        }
+            var sub = core.CreateSubscriber<TestMessage>("controller", message => { Do something });
+        }*/
     }
 }

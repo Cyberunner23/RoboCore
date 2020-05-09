@@ -7,19 +7,22 @@ using Serilog;
 
 namespace RoboCore.DataTransport.MQTT
 {
-    public class MQTTSubscriber<TMessage> : ISubscriber<TMessage>
+    public class MqttSubscriber<TMessage> : ISubscriber, IMessageHandler where TMessage : class, new()
     {
-        private readonly IManagedMqttClient _client;
-        private readonly PubSubMessageSerializer<PubSubMessage, TMessage> _serializer;
+        public string Topic { get; }
+        
+        private readonly MessageSerializer<PubSubMessage, TMessage> _serializer;
+        private readonly Action<TMessage> _messageReceivedHandler;
 
-        public MQTTSubscriber(IManagedMqttClient client, string topic)
+        public MqttSubscriber(IManagedMqttClient client, string topic, Action<TMessage> messageReceivedHandler)
         {
-            _client = client;
-            _serializer = new PubSubMessageSerializer<PubSubMessage, TMessage>();
-
+            _serializer = new MessageSerializer<PubSubMessage, TMessage>();
+            _messageReceivedHandler = messageReceivedHandler;
+            Topic = topic;
+            
             try
             {
-                _client.SubscribeAsync(new TopicFilterBuilder().WithTopic(topic).Build()).Wait();
+                client.SubscribeAsync(new TopicFilterBuilder().WithTopic(Topic).Build()).Wait();
             }
             catch (Exception e)
             {
@@ -28,11 +31,11 @@ namespace RoboCore.DataTransport.MQTT
             }
         }
         
-        public override bool HandleMessageReceived(string serializedMessage)
+        public bool HandleMessageReceived(string serializedMessage)
         {
             TMessage message;
             var parseSucceeded = _serializer.Deserialize(serializedMessage, out message);
-            InvokeMessageReceived(message);
+            _messageReceivedHandler(message);
             return parseSucceeded;
         }
     }
